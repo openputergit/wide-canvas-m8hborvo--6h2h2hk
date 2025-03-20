@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GK Job Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .active-tab {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Navigation -->
+        <nav class="flex flex-wrap gap-4 mb-8 border-b pb-4">
+            <button onclick="switchTab('dashboard')" class="tab-btn active-tab px-4 py-2">Dashboard</button>
+            <button onclick="switchTab('assign-work')" class="tab-btn px-4 py-2">Assign Work</button>
+            <button onclick="switchTab('receive-items')" class="tab-btn px-4 py-2">Receive Items</button>
+            <button onclick="switchTab('vendors')" class="tab-btn px-4 py-2">Vendors</button>
+            <button onclick="switchTab('payments')" class="tab-btn px-4 py-2">Payments</button>
+            <button onclick="switchTab('reports')" class="tab-btn px-4 py-2">Reports</button>
+        </nav>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="tab-content">
+            <h2 class="text-2xl font-bold mb-4">Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-bold">Pending Jobs</h3>
+                    <p id="pending-count" class="text-2xl">0</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-bold">Completed Jobs</h3>
+                    <p id="completed-count" class="text-2xl">0</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-bold">Total Vendors</h3>
+                    <p id="vendor-count" class="text-2xl">0</p>
+                </div>
+            </div>
+            <div id="pending-alerts" class="bg-red-100 p-4 rounded mb-4 hidden">
+                <h3 class="font-bold">Delivery Alerts</h3>
+                <ul id="alert-list" class="list-disc pl-4"></ul>
+            </div>
+            <div id="jobs-list" class="bg-white rounded shadow"></div>
+        </div>
+
+        <!-- Assign Work Form -->
+        <div id="assign-work" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Assign Work</h2>
+            <form id="assign-work-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="invoice-id" placeholder="Invoice ID" required class="w-full p-2 border rounded">
+                    <select id="vendor-select" required class="w-full p-2 border rounded">
+                        <option value="">Select Vendor</option>
+                    </select>
+                    <input type="text" id="item-name" placeholder="Item Name" required class="w-full p-2 border rounded">
+                    <input type="text" id="work-description" placeholder="Work to be Done" required class="w-full p-2 border rounded">
+                    <input type="datetime-local" id="issue-date" required class="w-full p-2 border rounded">
+                    <input type="datetime-local" id="delivery-by" required class="w-full p-2 border rounded">
+                    <input type="text" id="transporter" placeholder="Transporter Name" class="w-full p-2 border rounded">
+                    <input type="number" id="quantity" placeholder="Quantity" required class="w-full p-2 border rounded">
+                    <input type="number" id="rate" placeholder="Rate" required class="w-full p-2 border rounded">
+                    <textarea id="remarks" placeholder="Remarks" class="w-full p-2 border rounded"></textarea>
+                </div>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Assign Work</button>
+            </form>
+        </div>
+
+        <!-- Receive Items -->
+        <div id="receive-items" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Receive Items</h2>
+            <form id="receive-items-form" class="space-y-4">
+                <input type="text" id="receive-invoice-id" placeholder="Invoice ID" required class="w-full p-2 border rounded">
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Mark as Received</button>
+            </form>
+        </div>
+
+        <!-- Vendors Management -->
+        <div id="vendors" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Vendors Management</h2>
+            <button onclick="showAddVendorModal()" class="bg-blue-500 text-white px-4 py-2 rounded mb-4">Add Vendor</button>
+            <div id="vendors-list" class="space-y-4"></div>
+        </div>
+
+        <!-- Payments -->
+        <div id="payments" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Payments</h2>
+            <form id="payment-form" class="space-y-4">
+                <select id="payment-vendor" required class="w-full p-2 border rounded">
+                    <option value="">Select Vendor</option>
+                </select>
+                <input type="text" id="payment-invoice-id" placeholder="Invoice ID" required class="w-full p-2 border rounded">
+                <input type="number" id="payment-amount" placeholder="Amount" required class="w-full p-2 border rounded">
+                <textarea id="payment-remarks" placeholder="Remarks" class="w-full p-2 border rounded"></textarea>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Record Payment</button>
+            </form>
+            <div id="payment-history" class="mt-8"></div>
+        </div>
+
+        <!-- Reports -->
+        <div id="reports" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">Reports</h2>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-bold mb-2">Vendor-wise Report</h3>
+                    <select id="report-vendor" class="w-full p-2 border rounded">
+                        <option value="">Select Vendor</option>
+                    </select>
+                </div>
+                <div>
+                    <h3 class="font-bold mb-2">Date-wise Report</h3>
+                    <input type="date" id="report-date" class="w-full p-2 border rounded">
+                </div>
+                <button onclick="generateReport()" class="bg-blue-500 text-white px-4 py-2 rounded">Generate Report</button>
+            </div>
+            <div id="report-results" class="mt-8"></div>
+        </div>
+    </div>
+
+    <!-- Add Vendor Modal -->
+    <div id="add-vendor-modal" class="modal">
+        <div class="bg-white p-8 rounded shadow-lg w-96 mx-auto mt-20">
+            <h3 class="text-xl font-bold mb-4">Add Vendor</h3>
+            <form id="add-vendor-form" class="space-y-4">
+                <input type="text" id="vendor-name" placeholder="Vendor Name" required class="w-full p-2 border rounded">
+                <textarea id="vendor-address" placeholder="Address" required class="w-full p-2 border rounded"></textarea>
+                <input type="tel" id="vendor-contact" placeholder="Contact Number" required class="w-full p-2 border rounded">
+                <input type="tel" id="vendor-alt-contact" placeholder="Alternate Contact Number" class="w-full p-2 border rounded">
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Add Vendor</button>
+                <button type="button" onclick="closeModal('add-vendor-modal')" class="bg-gray-500 text-white px-4 py-2 rounded ml-2">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initialize local storage
+        if (!localStorage.getItem('jobs')) localStorage.setItem('jobs', '[]');
+        if (!localStorage.getItem('vendors')) localStorage.setItem('vendors', '[]');
+        if (!localStorage.getItem('payments')) localStorage.setItem('payments', '[]');
+        if (!localStorage.getItem('rateCards')) localStorage.setItem('rateCards', '[]');
+
+        // Utility functions
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+            event.target.classList.add('active-tab');
+            updateDashboard();
+        }
+
+        function showAddVendorModal() {
+            document.getElementById('add-vendor-modal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Form Submissions
+        document.getElementById('assign-work-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const job = {
+                invoiceId: document.getElementById('invoice-id').value,
+                vendorId: document.getElementById('vendor-select').value,
+                itemName: document.getElementById('item-name').value,
+                workDescription: document.getElementById('work-description').value,
+                issueDate: document.getElementById('issue-date').value,
+                deliveryBy: document.getElementById('delivery-by').value,
+                transporter: document.getElementById('transporter').value,
+                quantity: document.getElementById('quantity').value,
+                rate: document.getElementById('rate').value,
+                remarks: document.getElementById('remarks').value,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+
+            const jobs = JSON.parse(localStorage.getItem('jobs'));
+            jobs.push(job);
+            localStorage.setItem('jobs', JSON.stringify(jobs));
+            this.reset();
+            updateDashboard();
+        });
+
+        document.getElementById('add-vendor-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const vendor = {
+                id: Date.now().toString(),
+                name: document.getElementById('vendor-name').value,
+                address: document.getElementById('vendor-address').value,
+                contact: document.getElementById('vendor-contact').value,
+                altContact: document.getElementById('vendor-alt-contact').value
+            };
+
+            const vendors = JSON.parse(localStorage.getItem('vendors'));
+            vendors.push(vendor);
+            localStorage.setItem('vendors', JSON.stringify(vendors));
+            this.reset();
+            closeModal('add-vendor-modal');
+            updateVendorsList();
+        });
+
+        document.getElementById('receive-items-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const invoiceId = document.getElementById('receive-invoice-id').value;
+            const jobs = JSON.parse(localStorage.getItem('jobs'));
+            const jobIndex = jobs.findIndex(job => job.invoiceId === invoiceId);
+            
+            if (jobIndex !== -1) {
+                jobs[jobIndex].status = 'completed';
+                jobs[jobIndex].receivedDate = new Date().toISOString();
+                localStorage.setItem('jobs', JSON.stringify(jobs));
+                this.reset();
+                updateDashboard();
+            } else {
+                alert('Invoice ID not found!');
+            }
+        });
+
+        document.getElementById('payment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const payment = {
+                id: Date.now().toString(),
+                vendorId: document.getElementById('payment-vendor').value,
+                invoiceId: document.getElementById('payment-invoice-id').value,
+                amount: document.getElementById('payment-amount').value,
+                remarks: document.getElementById('payment-remarks').value,
+                date: new Date().toISOString()
+            };
+
+            const payments = JSON.parse(localStorage.getItem('payments'));
+            payments.push(payment);
+            localStorage.setItem('payments', JSON.stringify(payments));
+            this.reset();
+            updatePaymentHistory();
+        });
+
+        // Update UI functions
+        function updateDashboard() {
+            const jobs = JSON.parse(localStorage.getItem('jobs'));
+            document.getElementById('pending-count').textContent = jobs.filter(job => job.status === 'pending').length;
+            document.getElementById('completed-count').textContent = jobs.filter(job => job.status === 'completed').length;
+            document.getElementById('vendor-count').textContent = JSON.parse(localStorage.getItem('vendors')).length;
+            
+            // Check for alerts
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const alerts = jobs.filter(job => 
+                job.status === 'pending' && 
+                new Date(job.deliveryBy).toDateString() === tomorrow.toDateString()
+            );
+
+            const alertsContainer = document.getElementById('pending-alerts');
+            const alertsList = document.getElementById('alert-list');
+            alertsList.innerHTML = '';
+            
+            if (alerts.length > 0) {
+                alertsContainer.classList.remove('hidden');
+                alerts.forEach(alert => {
+                    const li = document.createElement('li');
+                    li.textContent = `${alert.itemName} (Invoice ID: ${alert.invoiceId}) is due tomorrow`;
+                    alertsList.appendChild(li);
+                });
+            } else {
+                alertsContainer.classList.add('hidden');
+            }
+        }
+
+        function updateVendorsList() {
+            const vendors = JSON.parse(localStorage.getItem('vendors'));
+            const vendorsList = document.getElementById('vendors-list');
+            const vendorSelect = document.getElementById('vendor-select');
+            const paymentVendor = document.getElementById('payment-vendor');
+            const reportVendor = document.getElementById('report-vendor');
+            
+            // Clear existing options
+            vendorSelect.innerHTML = '<option value="">Select Vendor</option>';
+            paymentVendor.innerHTML = '<option value="">Select Vendor</option>';
+            reportVendor.innerHTML = '<option value="">Select Vendor</option>';
+            
+            // Update vendors list and dropdowns
+            vendorsList.innerHTML = '';
+            vendors.forEach(vendor => {
+                // Add to vendors list
+                const vendorCard = document.createElement('div');
+                vendorCard.className = 'bg-white p-4 rounded shadow';
+                vendorCard.innerHTML = `
+                    <h3 class="font-bold">${vendor.name}</h3>
+                    <p>${vendor.address}</p>
+                    <p>Contact: ${vendor.contact}</p>
+                    ${vendor.altContact ? `<p>Alt Contact: ${vendor.altContact}</p>` : ''}
+                `;
+                vendorsList.appendChild(vendorCard);
+
+                // Add to dropdowns
+                const option = document.createElement('option');
+                option.value = vendor.id;
+                option.textContent = vendor.name;
+                vendorSelect.appendChild(option.cloneNode(true));
+                paymentVendor.appendChild(option.cloneNode(true));
+                reportVendor.appendChild(option.cloneNode(true));
+            });
+        }
+
+        function updatePaymentHistory() {
+            const payments = JSON.parse(localStorage.getItem('payments'));
+            const vendors = JSON.parse(localStorage.getItem('vendors'));
+            const history = document.getElementById('payment-history');
+            
+            history.innerHTML = '<h3 class="font-bold mb-4">Payment History</h3>';
+            payments.forEach(payment => {
+                const vendor = vendors.find(v => v.id === payment.vendorId);
+                const div = document.createElement('div');
+                div.className = 'bg-white p-4 rounded shadow mb-4';
+                div.innerHTML = `
+                    <p><strong>Vendor:</strong> ${vendor ? vendor.name : 'Unknown'}</p>
+                    <p><strong>Invoice ID:</strong> ${payment.invoiceId}</p>
+                    <p><strong>Amount:</strong> ₹${payment.amount}</p>
+                    <p><strong>Date:</strong> ${new Date(payment.date).toLocaleString()}</p>
+                    <p><strong>Remarks:</strong> ${payment.remarks}</p>
+                `;
+                history.appendChild(div);
+            });
+        }
+
+        function generateReport() {
+            const vendorId = document.getElementById('report-vendor').value;
+            const date = document.getElementById('report-date').value;
+            const jobs = JSON.parse(localStorage.getItem('jobs'));
+            const vendors = JSON.parse(localStorage.getItem('vendors'));
+            const payments = JSON.parse(localStorage.getItem('payments'));
+            
+            let filteredJobs = jobs;
+            if (vendorId) {
+                filteredJobs = filteredJobs.filter(job => job.vendorId === vendorId);
+            }
+            if (date) {
+                filteredJobs = filteredJobs.filter(job => 
+                    new Date(job.issueDate).toDateString() === new Date(date).toDateString()
+                );
+            }
+
+            const results = document.getElementById('report-results');
+            results.innerHTML = `
+                <h3 class="font-bold mb-4">Report Results</h3>
+                <div class="bg-white p-4 rounded shadow">
+                    <p>Total Jobs: ${filteredJobs.length}</p>
+                    <p>Completed Jobs: ${filteredJobs.filter(job => job.status === 'completed').length}</p>
+                    <p>Pending Jobs: ${filteredJobs.filter(job => job.status === 'pending').length}</p>
+                </div>
+                <div class="mt-4">
+                    ${filteredJobs.map(job => `
+                        <div class="bg-white p-4 rounded shadow mb-4">
+                            <p><strong>Invoice ID:</strong> ${job.invoiceId}</p>
+                            <p><strong>Vendor:</strong> ${vendors.find(v => v.id === job.vendorId)?.name || 'Unknown'}</p>
+                            <p><strong>Item:</strong> ${job.itemName}</p>
+                            <p><strong>Status:</strong> ${job.status}</p>
+                            <p><strong>Amount:</strong> ₹${job.rate * job.quantity}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Initial setup
+        updateDashboard();
+        updateVendorsList();
+        updatePaymentHistory();
+
+        // Check for alerts every minute
+        setInterval(updateDashboard, 60000);
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
